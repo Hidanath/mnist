@@ -1,0 +1,1 @@
+This is a mnist project with tkinter
