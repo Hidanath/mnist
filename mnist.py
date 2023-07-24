@@ -16,8 +16,8 @@ class Model:
         self.relu2deriv = lambda x: x>=0 # returns 1 for input > 0, return 0 otherwise
         self.alpha, self.hidden_size, self.pixels_per_image, self.num_labels = (alpha, 40, 784, 10) #num_labels количество классов
 
-        self.weights_0_1 = 0.2*np.random.random((self.pixels_per_image,self.hidden_size)) - 0.1 #Матрица 784 на 40, тк вход 784 пикселя, скрытый слой 40 нейронов
-        self.weights_1_2 = 0.2*np.random.random((self.hidden_size,self.num_labels)) - 0.1 #Матрица 40 на 10, тк скрытый слой 40 нейронов, выход 10 классов
+        self.weights_0_1 = 0.2*np.random.random((self.pixels_per_image, self.hidden_size)) - 0.1 #Матрица 784 на 40, тк вход 784 пикселя, скрытый слой 40 нейронов
+        self.weights_1_2 = 0.2*np.random.random((self.hidden_size, self.num_labels)) - 0.1 #Матрица 40 на 10, тк скрытый слой 40 нейронов, выход 10 классов
 
     def splitToClasses(self, labels):
         """Conver labels to the class labels
@@ -50,6 +50,10 @@ class Model:
             for i in range(len(self.images)): #1000 итераций, тк 1000 картинок
                 layer_0 = self.images[i:i+1] #Срез по индексу
                 layer_1 = self.relu(np.dot(layer_0, self.weights_0_1))
+
+                dropout_mask = np.random.randint(2, size=layer_1.shape) #Матрица нулей и единиц для dropout
+                layer_1 *= dropout_mask * 2 #Отключение половины нейронов и уравнивание суммы
+
                 layer_2 = np.dot(layer_1, self.weights_1_2)
 
                 error += np.sum((self.labels[i:i+1] - layer_2) ** 2) #Ошибка между labels по индексу и layer_2
@@ -57,6 +61,8 @@ class Model:
 
                 layer_2_delta = (self.labels[i:i+1] - layer_2)
                 layer_1_delta = layer_2_delta.dot(self.weights_1_2.T) * self.relu2deriv(layer_1)
+
+                layer_1_delta *= dropout_mask
 
                 self.weights_1_2 += self.alpha * layer_1.T.dot(layer_2_delta)
                 self.weights_0_1 += self.alpha * layer_0.T.dot(layer_1_delta)
