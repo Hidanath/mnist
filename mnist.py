@@ -35,14 +35,24 @@ class Model:
             
         return one_hot_labels
     
-    def learning(self, iterations:int = 300, status:bool = False, autosave:bool = True):
+    def learning(self, iterations:int = 300, checkImagesNum:int = 1000, status:bool = False, visualization:bool = False, autosave:bool = True):
         """Learning model
 
         Args:
             iterations (int, optional): Number of training iterations. Defaults to 300.
+            checkImagesNum (int, optional): Number of check images. Used when visualization enabled. Defaults to 1000.
             status (bool, optional): Displaying the training status in the console. Defaults to False.
+            visualization (bool, optional): Return data for building a training schedule. Defaults to False
             autosave (bool, optional): Autosave models weights. Defaults to True.
+
+        If visualization enable return:
+            iterations (list[int]): Number of iterations.
+            errors (list[float]): Train errors.
+            correctAccuracy (list[float]) Check accuracy.
         """
+
+        errors = []
+        correctAccuracy = []
 
         for j in range(iterations):
             error, correct_cnt = (0.0, 0)
@@ -66,13 +76,21 @@ class Model:
 
                 self.weights_1_2 += self.alpha * layer_1.T.dot(layer_2_delta)
                 self.weights_0_1 += self.alpha * layer_0.T.dot(layer_1_delta)
+
+            if visualization:
+                errors.append(float(str(error/float(len(self.images)))[0:5]))
+                correctAccuracy.append(self.checkAccuracy(checkImagesNum))
+
             if status:
                 sys.stdout.write("\r I:"+str(j)+ \
                                 " Train-Err:" + str(error/float(len(self.images)))[0:5] +\
                                 " Train-Acc:" + str(correct_cnt/float(len(self.images))))
-                
+
         if autosave:
             self.saveModel()
+
+        if visualization:
+            return [i for i in range(iterations)], errors, correctAccuracy
 
     def predict(self, image):
         """Neural netrwork prediction
