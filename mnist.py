@@ -90,7 +90,7 @@ class Model:
             numpy.ndarray: Class label
         """
 
-        layer_0 = image
+        layer_0 = image.reshape(1, -1)
         layer_1 = self.tanh(np.dot(layer_0, self.weights_0_1))
         layer_2 = self.softmax(np.dot(layer_1, self.weights_1_2))
 
