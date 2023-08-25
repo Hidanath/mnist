@@ -30,8 +30,9 @@ class RecognizeNumbers(tk.Canvas):
 
     def recognize(self):
         image = self.grabCanvas()
-        image = (255-np.array(image)).reshape((28*28)) #Pixel color inversion
-        prediction = self.model.predict(image)
+        image = 1 - (np.array(image)/255) #Перевод в цветовой диапазон белый - 0, чёрный - 1
+        image[image == 0.05882352941176472] = 0 #Убирание шумов тк цвет фона не идеально белый
+        prediction = self.model.predict(image.reshape((28*28)))
 
         print(np.argmax(prediction))
         self.delete("all")

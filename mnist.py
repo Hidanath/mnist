@@ -3,7 +3,7 @@ import numpy as np
 from keras.datasets import mnist
 
 class Model:
-    def __init__(self, imagesNum = 1000, alpha = 0.005):
+    def __init__(self, imagesNum = 1000, alpha = 0.005, hidden_size = 100, batch_size = 100):
         (x_train, y_train), (x_test, y_test) = mnist.load_data() #Получение данных[x_train данные картинки(60000 матриц 28*28), y_train 60000 подписей к данным]
         self.images, labels = (x_train[0:imagesNum].reshape(imagesNum, 28*28) / 255, y_train[0:imagesNum]) #Матрица imagesNum на 784, imagesNum картинок со значениями силы для 784 пикселей от 0 до 1, imagesNum подписей
         self.labels = self.splitToClasses(labels)
@@ -16,10 +16,10 @@ class Model:
         self.tanh = lambda x: np.tanh(x)
         self.tanh2deriv = lambda x: 1 - (x**2)
 
-        self.alpha, self.hidden_size, self.pixels_per_image, self.num_labels = (alpha, 40, 784, 10) #num_labels количество классов
+        self.alpha, self.hidden_size, self.pixels_per_image, self.num_labels, self.batch_size = (alpha, hidden_size, 784, 10, batch_size) #num_labels количество классов
 
-        self.weights_0_1 = 0.2*np.random.random((self.pixels_per_image, self.hidden_size)) - 0.1 #Матрица 784 на 40, тк вход 784 пикселя, скрытый слой 40 нейронов
-        self.weights_1_2 = 0.2*np.random.random((self.hidden_size, self.num_labels)) - 0.1 #Матрица 40 на 10, тк скрытый слой 40 нейронов, выход 10 классов
+        self.weights_0_1 = 0.02*np.random.random((self.pixels_per_image, self.hidden_size)) - 0.01 #Матрица 784 на 100, тк вход 784 пикселя, скрытый слой 100 нейронов
+        self.weights_1_2 = 0.2*np.random.random((self.hidden_size, self.num_labels)) - 0.1 #Матрица 100 на 10, тк скрытый слой 100 нейронов, выход 10 классов
 
     def softmax(self, x):
         temp = np.exp(x)
@@ -51,21 +51,23 @@ class Model:
         """
 
         for j in range(iterations):
-            error, correct_cnt = (0.0, 0)
+            correct_cnt = 0
 
-            for i in range(len(self.images)): #1000 итераций, тк 1000 картинок
-                layer_0 = self.images[i:i+1] #Срез по индексу
+            for i in range(int(len(self.images) / self.batch_size)): #Количество итераций зависит от размера пачки и количества картинок
+                batch_start, batch_end=((i * self.batch_size),((i+1)*self.batch_size))
+
+                layer_0 = self.images[batch_start:batch_end] #Срез по пачке
                 layer_1 = self.tanh(np.dot(layer_0, self.weights_0_1))
 
                 dropout_mask = np.random.randint(2, size=layer_1.shape) #Матрица нулей и единиц для dropout
                 layer_1 *= dropout_mask * 2 #Отключение половины нейронов и уравнивание суммы
 
                 layer_2 = self.softmax(np.dot(layer_1, self.weights_1_2))
+                
+                for k in range(self.batch_size): #Расчёт совпадения для каждого изображения из пачки
+                    correct_cnt += int(np.argmax(layer_2[k:k+1]) == np.argmax(self.labels[batch_start+k:batch_start+k+1]))
 
-                error += np.sum((self.labels[i:i+1] - layer_2) ** 2) #Ошибка между labels по индексу и layer_2
-                correct_cnt += int(np.argmax(layer_2) == np.argmax(self.labels[i:i+1])) #Проверка полученного класса с необходимым
-
-                layer_2_delta = (self.labels[i:i+1] - layer_2)
+                layer_2_delta = (self.labels[batch_start:batch_end]-layer_2) / (self.batch_size * layer_2.shape[0]) #Деление на размер пачки умноженный на количество строк layer_2 для усреднения
                 layer_1_delta = layer_2_delta.dot(self.weights_1_2.T) * self.tanh2deriv(layer_1)
 
                 layer_1_delta *= dropout_mask
@@ -73,8 +75,7 @@ class Model:
                 self.weights_1_2 += self.alpha * layer_1.T.dot(layer_2_delta)
                 self.weights_0_1 += self.alpha * layer_0.T.dot(layer_1_delta)
             if status:
-                sys.stdout.write("\r I:"+str(j)+ \
-                                " Train-Err:" + str(error/float(len(self.images)))[0:5] +\
+                sys.stdout.write("\r I:"+str(j)+\
                                 " Train-Acc:" + str(correct_cnt/float(len(self.images))))
                 
         if autosave:
@@ -90,9 +91,9 @@ class Model:
             numpy.ndarray: Class label
         """
 
-        layer_0 = image.reshape(1, -1)
+        layer_0 = image
         layer_1 = self.tanh(np.dot(layer_0, self.weights_0_1))
-        layer_2 = self.softmax(np.dot(layer_1, self.weights_1_2))
+        layer_2 = np.dot(layer_1, self.weights_1_2)
 
         return layer_2
     
